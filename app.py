@@ -146,19 +146,31 @@ def log_prediction(name, inputs, prediction, probability):
             "region": "India",
         }])
 
-        if LOG_FILE.exists():
-            existing = pd.read_csv(LOG_FILE)
+        # --- Local log path ---
+        local_path = LOG_DIR / "audit_log.csv"
+
+        # Always load existing logs first (from local or remote if missing)
+        if local_path.exists():
+            existing = pd.read_csv(local_path)
             updated = pd.concat([existing, new_log], ignore_index=True)
         else:
-            updated = new_log
+            # If local file missing (e.g., after restart), pull from remote
+            try:
+                url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
+                remote = pd.read_csv(url, dtype=str)
+                updated = pd.concat([remote, new_log], ignore_index=True)
+            except Exception:
+                updated = new_log  # no remote available
 
-        updated.to_csv(LOG_FILE, index=False)
+        # Save locally
+        updated.to_csv(local_path, index=False)
 
+        # Push the whole updated file to Hugging Face
         if HF_TOKEN:
             try:
                 api = HfApi()
                 api.upload_file(
-                    path_or_fileobj=str(LOG_FILE),
+                    path_or_fileobj=str(local_path),
                     path_in_repo="audit_log.csv",
                     repo_id=DATASET_REPO,
                     repo_type="dataset",
@@ -166,14 +178,16 @@ def log_prediction(name, inputs, prediction, probability):
                     commit_message=f"Log update {datetime.now().isoformat()}",
                     create_pr=False,
                 )
-                logger.info("Logs synced to Hugging Face.")
+                logger.info("✅ Logs appended and synced with Hugging Face.")
             except Exception as e:
                 logger.warning(f"Hugging Face upload failed: {e}")
         else:
-            st.warning("HF_TOKEN not set → logs saved locally only.")
+            st.warning("⚠️ HF_TOKEN not set → logs saved locally only.")
+
     except Exception as e:
-        logger.error(f"Log save failed: {e}")
+        logger.error(f"❌ Log save failed: {e}")
         st.error("Could not save logs.")
+
 
 # 🎨 Main Streamlit App
 def main():
