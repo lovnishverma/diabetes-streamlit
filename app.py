@@ -21,7 +21,7 @@ HF_USERNAME = "LovnishVerma"
 DATASET_REPO = f"{HF_USERNAME}/diabetes-logs"
 HF_TOKEN = os.getenv("HF_TOKEN")  # should be set in Streamlit secrets/environment
 
-# 📂 Ensure Hugging Face dataset repo exists
+# Ensure Hugging Face dataset repo exists
 def ensure_dataset_repo():
     try:
         create_repo(
