@@ -11,22 +11,21 @@ scaler = None
 # Load the diabetes prediction model with error handling
 @st.cache_resource
 def load_model():
-    global diabetes_model, scaler
     try:
-        diabetes_model = load('models/diabetes.sav')
-        # Try to load scaler if it exists
+        model = load("models/diabetes.sav")
         try:
-            scaler = load('models/scaler.sav')
+            scaler = load("models/scaler.sav")
         except FileNotFoundError:
             st.warning("Scaler not found. Using raw input values.")
             scaler = None
-        return True
+        return model, scaler
     except FileNotFoundError:
         st.error("❌ Model file not found at 'models/diabetes.sav'. Please ensure the model file exists.")
-        return False
+        return None, None
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
-        return False
+        return None, None
+
 
 # Input validation functions
 def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age):
