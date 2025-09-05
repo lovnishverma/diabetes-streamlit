@@ -110,19 +110,43 @@ st.markdown("""
     
     /* Input Styling */
     .stNumberInput > div > div > input {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 10px;
-        color: white;
+        color: white !important;
         backdrop-filter: blur(10px);
     }
     
     .stTextInput > div > div > input {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 10px;
-        color: white;
+        color: white !important;
         backdrop-filter: blur(10px);
+    }
+    
+    /* Input placeholder styling */
+    .stTextInput > div > div > input::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+    
+    .stNumberInput > div > div > input::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+    
+    /* Input focus styling */
+    .stTextInput > div > div > input:focus {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        color: white !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+    }
+    
+    .stNumberInput > div > div > input:focus {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        color: white !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
     }
     
     /* Risk Cards */
@@ -903,6 +927,14 @@ def main():
         <p style="font-size: 0.8rem; margin-top: 1rem;">
             ⚠️ <em>This tool is for educational and screening purposes only. Always consult healthcare professionals for medical decisions.</em>
         </p>
+        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+            <p style="font-size: 0.9rem; color: rgba(255,255,255,0.8);">
+                © 2024 <strong>Lovnish Verma</strong> | NIELIT Chandigarh
+            </p>
+            <p style="font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-top: 0.5rem;">
+                Developed with ❤️ using Streamlit & Machine Learning
+            </p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
