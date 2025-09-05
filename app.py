@@ -8,7 +8,7 @@ from pathlib import Path
 from huggingface_hub import HfApi, create_repo
 import os
 
-# --- Setup ---
+# Setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
