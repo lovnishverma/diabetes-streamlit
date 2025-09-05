@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import os
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
@@ -59,18 +58,6 @@ for thresh in [0.3, 0.4, 0.5, 0.6]:
     print(f"\nThreshold = {thresh}")
     print("Accuracy:", acc_thresh)
     print(classification_report(y_test, y_pred_thresh, digits=3))
-
-# Feature Importance
-importances = model.feature_importances_
-features = X.columns
-sorted_idx = np.argsort(importances)[::-1]
-
-plt.figure(figsize=(8, 5))
-plt.bar(range(len(importances)), importances[sorted_idx], color="skyblue")
-plt.xticks(range(len(importances)), features[sorted_idx], rotation=45)
-plt.title("Feature Importance (RandomForest)")
-plt.tight_layout()
-plt.show()
 
 # Save model & scaler
 os.makedirs("models", exist_ok=True)
