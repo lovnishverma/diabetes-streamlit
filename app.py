@@ -424,32 +424,47 @@ def create_risk_visualization(probability):
     
     return fig
 
+
+
 def create_feature_importance_chart():
-    """Create a chart showing feature importance"""
+    """Create a sorted chart showing feature importance"""
     features = ['Glucose', 'BMI', 'Age', 'Pregnancies', 'Blood Pressure', 
                'Insulin', 'Pedigree', 'Skin Thickness']
     importance = [0.25, 0.20, 0.15, 0.12, 0.10, 0.08, 0.06, 0.04]
+
+    # Create a DataFrame to easily sort the data
+    data = pd.DataFrame({'Feature': features, 'Importance': importance})
     
+    # Sort the DataFrame by 'Importance'
+    data = data.sort_values(by='Importance', ascending=True)
+
+    # Plot the sorted data
     fig = px.bar(
-        x=importance, 
-        y=features,
+        data,
+        x='Importance', 
+        y='Feature',
         orientation='h',
-        title="Feature Importance in Diabetes Prediction",
-        color=importance,
-        color_continuous_scale='viridis'
+        # The title text is now set here for clarity
+        title="Feature Importance in Diabetes Prediction"
     )
     
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font={'color': 'white', 'family': 'Inter'},
-        title={'font': {'color': 'white', 'size': 16}},
+        # CORRECTED TITLE LAYOUT: 'x' is now outside of 'font'
+        title={'x': 0.5, 'font': {'color': 'white', 'size': 16}},
         xaxis={'tickfont': {'color': 'white'}},
         yaxis={'tickfont': {'color': 'white'}},
         height=400
     )
     
     return fig
+
+
+# To display the chart
+# fig = create_feature_importance_chart()
+# fig.show()
 
 def create_stats_cards(logs_df):
     """Create beautiful statistics cards"""
