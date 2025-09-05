@@ -12,3 +12,15 @@ short_description: This AI-powered Diabetes Prediction App uses a trained Model
 ---
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+
+# Diabetes Prediction App
+
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/6474405f90330355db146c76/iLbZiplXJ6W96wDuWXipN.png)
+
+# View Logs
+
+https://huggingface.co/datasets/LovnishVerma/diabetes-logs
+
+# Live View
+
+https://lovnishverma-diabetes.hf.space/
