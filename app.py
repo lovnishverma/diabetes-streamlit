@@ -1,5 +1,3 @@
-# app.py - Fully working, HF-compatible, public logging
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -19,7 +17,7 @@ LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
 # --- Your Hugging Face Dataset (PUBLIC) ---
-HF_USERNAME = "your-username"  # ← CHANGE THIS to your HF username
+HF_USERNAME = "LovnishVerma"
 DATASET_REPO = f"{HF_USERNAME}/diabetes-logs"
 HF_TOKEN = os.getenv("HF_TOKEN")  # Set in HF Secrets
 
@@ -124,9 +122,12 @@ def log_prediction(name, inputs, prediction, probability):
 
         # Load existing logs or start fresh
         try:
-            existing = pd.read_csv(f"https://huggingface.co/datasets/{DATASET_REPO}/resolve/main/audit_log.csv")
+            # ✅ CORRECTED: No extra spaces in URL
+            url = f"https://huggingface.co/datasets/{DATASET_REPO}/resolve/main/audit_log.csv"
+            existing = pd.read_csv(url)
             updated = pd.concat([existing, new_log], ignore_index=True)
-        except:
+        except Exception as e:
+            logger.warning(f"Could not load existing logs: {e}")
             updated = new_log  # First entry
 
         # Save locally (for speed)
@@ -195,7 +196,8 @@ def main():
         errors, _ = validate_inputs(**inputs)
         if errors:
             st.error("🔴 **Errors**")
-            for e in errors: st.write(f"• {e}")
+            for e in errors:
+                st.write(f"• {e}")
             st.session_state.run_prediction = False
             return
 
@@ -238,10 +240,11 @@ def main():
     # Optional: Show public logs
     if st.checkbox("📊 View Public Logs (last 10)"):
         try:
+            # ✅ CORRECTED: No extra spaces
             url = f"https://huggingface.co/datasets/{DATASET_REPO}/resolve/main/audit_log.csv"
             logs = pd.read_csv(url)
             st.dataframe(logs.tail(10))
-        except:
+        except Exception as e:
             st.info("No logs yet. Make a prediction!")
 
 if __name__ == "__main__":
