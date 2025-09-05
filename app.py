@@ -146,26 +146,38 @@ def log_prediction(name, inputs, prediction, probability):
             "region": "India",
         }])
 
-        # --- Local log path ---
-        local_path = LOG_DIR / "audit_log.csv"
+        local_path = LOG_FILE
 
-        # Always load existing logs first (from local or remote if missing)
+        # Always try to load remote first (source of truth)
+        logs = None
+        try:
+            url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
+            logs = pd.read_csv(url, dtype=str)
+        except Exception as e:
+            logger.warning(f"No remote logs found or fetch failed: {e}")
+
+        # Merge local logs if they exist
         if local_path.exists():
-            existing = pd.read_csv(local_path)
-            updated = pd.concat([existing, new_log], ignore_index=True)
-        else:
-            # If local file missing (e.g., after restart), pull from remote
             try:
-                url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
-                remote = pd.read_csv(url, dtype=str)
-                updated = pd.concat([remote, new_log], ignore_index=True)
+                local_logs = pd.read_csv(local_path, dtype=str)
+                if logs is not None:
+                    logs = pd.concat([logs, local_logs], ignore_index=True).drop_duplicates()
+                else:
+                    logs = local_logs
             except Exception:
-                updated = new_log  # no remote available
+                pass
 
-        # Save locally
-        updated.to_csv(local_path, index=False)
+        # Start fresh if no logs at all
+        if logs is None:
+            logs = pd.DataFrame()
 
-        # Push the whole updated file to Hugging Face
+        # Append new entry
+        logs = pd.concat([logs, new_log], ignore_index=True)
+
+        # Save to local
+        logs.to_csv(local_path, index=False)
+
+        # Push full updated file to HF
         if HF_TOKEN:
             try:
                 api = HfApi()
@@ -178,15 +190,16 @@ def log_prediction(name, inputs, prediction, probability):
                     commit_message=f"Log update {datetime.now().isoformat()}",
                     create_pr=False,
                 )
-                logger.info("✅ Logs appended and synced with Hugging Face.")
+                logger.info("✅ Logs synced with Hugging Face.")
             except Exception as e:
                 logger.warning(f"Hugging Face upload failed: {e}")
         else:
-            st.warning("⚠️ HF_TOKEN not set → logs saved locally only.")
+            st.warning("⚠️ HF_TOKEN not set → logs only stored locally.")
 
     except Exception as e:
         logger.error(f"❌ Log save failed: {e}")
         st.error("Could not save logs.")
+
 
 
 # 🎨 Main Streamlit App
