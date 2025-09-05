@@ -148,24 +148,44 @@ models/
 
 ---
 
+
 ## 📊 **Model Performance**
 
-### **Training Metrics**
-- **Algorithm**: Random Forest Classifier
-- **Training Accuracy**: 98.2%
-- **Validation Accuracy**: 95.8%
-- **Cross-validation Score**: 94.6% ± 2.1%
-- **ROC-AUC Score**: 0.97
+### **Optimal Threshold Selection**
+
+* Default probability threshold for classification: **0.5** (can be tuned for precision-recall tradeoff)
+* Threshold tuning allows adjusting sensitivity (recall) vs specificity (precision) depending on clinical use.
+
+### **Threshold Tuning Results**
+
+| Threshold | Accuracy | Precision (0/1) | Recall (0/1)  | F1-Score (0/1) |
+| --------- | -------- | --------------- | ------------- | -------------- |
+| 0.3       | 0.708    | 0.910 / 0.552   | 0.610 / 0.889 | 0.731 / 0.681  |
+| 0.4       | 0.701    | 0.838 / 0.554   | 0.670 / 0.759 | 0.744 / 0.641  |
+| 0.5       | 0.753    | 0.837 / 0.629   | 0.770 / 0.722 | 0.802 / 0.672  |
+| 0.6       | 0.747    | 0.785 / 0.660   | 0.840 / 0.574 | 0.812 / 0.614  |
+
+> **Note:** Thresholds below 0.5 improve recall for positive cases (catching more high-risk patients) but may reduce precision. Thresholds above 0.5 increase precision but reduce sensitivity.
+
+---
+
+### **Default Model Performance (Threshold=0.5)**
+
+* **Accuracy:** 0.753
+* **Precision:** 0 → 0.837, 1 → 0.629
+* **Recall:** 0 → 0.770, 1 → 0.722
+* **F1-Score:** 0 → 0.802, 1 → 0.672
 
 ### **Feature Importance Ranking**
-1. **Glucose Level** (25%) - Primary diabetes indicator
-2. **BMI** (20%) - Metabolic risk factor
-3. **Age** (15%) - Progressive risk factor
-4. **Pregnancies** (12%) - Gestational history impact
-5. **Blood Pressure** (10%) - Cardiovascular correlation
-6. **Insulin** (8%) - Metabolic function
-7. **Diabetes Pedigree** (6%) - Genetic predisposition
-8. **Skin Thickness** (4%) - Body composition
+
+1. **Glucose Level (25%)** – Primary diabetes indicator
+2. **BMI (20%)** – Metabolic risk factor
+3. **Age (15%)** – Progressive risk factor
+4. **Pregnancies (12%)** – Gestational history impact
+5. **Blood Pressure (10%)** – Cardiovascular correlation
+6. **Insulin (8%)** – Metabolic function
+7. **Diabetes Pedigree (6%)** – Genetic predisposition
+8. **Skin Thickness (4%)** – Body composition
 
 ---
 
