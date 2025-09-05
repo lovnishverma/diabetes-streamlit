@@ -4,10 +4,6 @@ import numpy as np
 import os
 from sklearn.preprocessing import StandardScaler
 
-# Global variable for model and scaler
-diabetes_model = None
-scaler = None
-
 # Load the diabetes prediction model with error handling
 @st.cache_resource
 def load_model():
@@ -43,7 +39,7 @@ def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin,
     if bloodpressure <= 0:
         errors.append("Blood pressure must be greater than 0")
     elif bloodpressure < 60:
-        warnings.append("Blood pressure seems low (normal systolic: 90-120 mmHg)")
+        warnings.append("Blood pressure seems low (normal diastolic: 60-80 mmHg)")
     elif bloodpressure > 180:
         warnings.append("Blood pressure is critically high - seek immediate medical attention")
     
@@ -74,46 +70,33 @@ def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin,
     
     return errors, warnings
 
-# Function to preprocess input data
-def preprocess_input(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age):
+
+# Function to predict diabetes with probability
+def predict_diabetes_with_probability(model, scaler, pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age):
     try:
         # Create input array
         input_data = np.array([[pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age]])
         
-        # Apply scaling if scaler is available
+        # Apply scaling if scaler exists
         if scaler is not None:
             input_data = scaler.transform(input_data)
         
-        return input_data
-    except Exception as e:
-        st.error(f"Error preprocessing input data: {str(e)}")
-        return None
-
-# Function to predict diabetes with probability
-def predict_diabetes_with_probability(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age):
-    try:
-        # Preprocess input
-        input_data = preprocess_input(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age)
-        
-        if input_data is None:
-            return None, None
-        
         # Make prediction
-        prediction = diabetes_model.predict(input_data)
-        
-        # Get probability if available
+        prediction = model.predict(input_data)
+
+        # Get probability if supported
         try:
-            probability = diabetes_model.predict_proba(input_data)
-            prob_positive = probability[0][1] * 100  # Probability of positive class
+            probability = model.predict_proba(input_data)
+            prob_positive = probability[0][1] * 100
         except AttributeError:
-            # Model doesn't support predict_proba
             prob_positive = None
-        
+
         return bool(prediction[0]), prob_positive
-        
+
     except Exception as e:
         st.error(f"Error making prediction: {str(e)}")
         return None, None
+
 
 # Function to display logo with error handling
 def display_logo():
@@ -124,12 +107,12 @@ def display_logo():
         except Exception as e:
             st.warning(f"Could not load logo: {str(e)}")
     else:
-        # Display a simple text logo instead
         st.markdown("""
         <div style='text-align: center; padding: 20px;'>
             <h2 style='color: #1f77b4;'>🩺 DIABETES PREDICTION</h2>
         </div>
         """, unsafe_allow_html=True)
+
 
 # Function to display results with enhanced formatting
 def display_results(name, prediction, probability, errors, warnings):
@@ -161,6 +144,7 @@ def display_results(name, prediction, probability, errors, warnings):
         a healthy lifestyle and regular medical check-ups.
         """)
 
+
 # Streamlit app
 def main():
     # Set page config
@@ -172,9 +156,10 @@ def main():
     )
     
     # Load model
-    if not load_model():
+    diabetes_model, scaler = load_model()
+    if diabetes_model is None:
         st.stop()
-    
+
     # Header
     st.title("🩺 Diabetes Risk Assessment Tool")
     display_logo()
@@ -197,43 +182,31 @@ def main():
     # Clinical details
     st.sidebar.subheader("🔬 Clinical Parameters")
     
-    # Create two columns for better organization
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
-        pregnancies = st.number_input("🤱 Pregnancies", min_value=0, max_value=20, value=0, 
-                                    help="Number of times pregnant")
-        glucose = st.number_input("🍯 Glucose (mg/dL)", min_value=0, max_value=300, value=120, 
-                                help="Plasma glucose concentration (normal fasting: 70-100)")
-        bloodpressure = st.number_input("💓 Blood Pressure (mmHg)", min_value=0, max_value=200, value=80, 
-                                      help="Diastolic blood pressure (normal: 60-80)")
-        insulin = st.number_input("💉 Insulin (mu U/ml)", min_value=0, max_value=500, value=0, 
-                                help="2-Hour serum insulin")
+        pregnancies = st.number_input("🤱 Pregnancies", min_value=0, max_value=20, value=0)
+        glucose = st.number_input("🍯 Glucose (mg/dL)", min_value=0, max_value=300, value=120)
+        bloodpressure = st.number_input("💓 Blood Pressure (mmHg)", min_value=0, max_value=200, value=80)
+        insulin = st.number_input("💉 Insulin (mu U/ml)", min_value=0, max_value=500, value=0)
     
     with col2:
-        bmi = st.number_input("⚖️ BMI", min_value=0.0, max_value=50.0, value=25.0, format="%.1f",
-                            help="Body mass index (normal: 18.5-24.9)")
-        diabetespedigree = st.number_input("🧬 Diabetes Pedigree", min_value=0.0, max_value=2.0, value=0.5, format="%.3f",
-                                         help="Diabetes pedigree function (family history)")
-        age = st.number_input("📅 Age (years)", min_value=1, max_value=100, value=30, 
-                            help="Age in years")
-        skinthickness = st.number_input("📏 Skin Thickness (mm)", min_value=0, max_value=100, value=20, 
-                                      help="Triceps skin fold thickness")
+        bmi = st.number_input("⚖️ BMI", min_value=0.0, max_value=50.0, value=25.0, format="%.1f")
+        diabetespedigree = st.number_input("🧬 Diabetes Pedigree", min_value=0.0, max_value=2.0, value=0.5, format="%.3f")
+        age = st.number_input("📅 Age (years)", min_value=1, max_value=100, value=30)
+        skinthickness = st.number_input("📏 Skin Thickness (mm)", min_value=0, max_value=100, value=20)
     
-    # Add reference ranges
     st.sidebar.markdown("""
     **📊 Reference Ranges:**
     - Glucose (fasting): 70-100 mg/dL
     - Blood Pressure: 60-80 mmHg (diastolic)
     - BMI: 18.5-24.9 (normal)
-    - Age: Consider diabetes risk increases with age
     """)
     
     # Prediction button
     if st.sidebar.button("🔍 Assess Diabetes Risk", key="predict_button"):
         # Validate inputs
-        errors, warnings = validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, 
-                                         insulin, bmi, diabetespedigree, age)
+        errors, warnings = validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age)
         
         if errors:
             st.error("❌ **Input Validation Errors:**")
@@ -245,13 +218,14 @@ def main():
         # Make prediction
         with st.spinner("🔄 Analyzing patient data..."):
             prediction, probability = predict_diabetes_with_probability(
+                diabetes_model, scaler,
                 pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age
             )
         
         # Display results
         display_results(name, prediction, probability, errors, warnings)
         
-        # Display input summary
+        # Input summary
         with st.expander("📋 Input Summary"):
             col1, col2 = st.columns(2)
             with col1:
@@ -265,19 +239,13 @@ def main():
                 st.write(f"**Age:** {age} years")
                 st.write(f"**Skin Thickness:** {skinthickness} mm")
     
-    # Footer
     st.sidebar.markdown("---")
     st.sidebar.markdown("""
     **⚠️ Medical Disclaimer:**
     This tool is for educational purposes only. 
     Always consult healthcare professionals for medical advice.
-    
-    **📞 Emergency:** If you have severe symptoms, seek immediate medical attention.
-    
-    © 2024 Diabetes Prediction App
     """)
-    
-    # Additional information in main area
+
     if name:
         st.markdown("---")
         st.subheader("📚 About Diabetes Risk Factors")
@@ -287,39 +255,33 @@ def main():
         with tab1:
             st.markdown("""
             **Key Risk Factors for Diabetes:**
-            - **Age:** Risk increases with age, especially after 45
-            - **BMI:** Higher BMI indicates increased risk
-            - **Family History:** Genetic predisposition (pedigree function)
-            - **Blood Glucose:** Elevated glucose levels
-            - **Blood Pressure:** Hypertension is linked to diabetes risk
-            - **Previous Pregnancies:** Gestational diabetes history
+            - Age > 45
+            - BMI > 25
+            - Family History
+            - High Blood Glucose
+            - High Blood Pressure
             """)
         
         with tab2:
             st.markdown("""
-            **Understanding Your Results:**
-            - **NEGATIVE:** Lower risk based on current parameters
-            - **POSITIVE:** Higher risk - requires medical evaluation
-            - **Probability Score:** When available, shows percentage risk
-            
-            **Important:** This is a screening tool, not a diagnosis.
+            **Results Meaning:**
+            - **NEGATIVE:** Lower risk
+            - **POSITIVE:** Higher risk (seek medical help)
+            - **Probability Score:** % likelihood
             """)
         
         with tab3:
             st.markdown("""
-            **Recommended Next Steps:**
+            **If POSITIVE:**
+            - Consult doctor
+            - Request tests (HbA1c, OGTT)
             
-            **If Result is POSITIVE:**
-            - 🏥 Schedule appointment with healthcare provider
-            - 🩸 Request proper diagnostic tests (HbA1c, OGTT)
-            - 📝 Discuss family history and symptoms
-            
-            **If Result is NEGATIVE:**
-            - 🔄 Continue regular health check-ups
-            - 🥗 Maintain healthy diet and exercise
-            - 📅 Rescreen annually if risk factors present
+            **If NEGATIVE:**
+            - Maintain healthy lifestyle
+            - Regular check-ups
             """)
 
-# Run the Streamlit app
+
+# Run Streamlit
 if __name__ == "__main__":
     main()
