@@ -280,7 +280,7 @@ We welcome contributions from the healthcare and developer community!
 - **Author**: Lovnish Verma
 - **Institution**: NIELIT Chandigarh
 - **Email**: Contact via Hugging Face profile
-- **LinkedIn**: [Connect on LinkedIn](https://linkedin.com/in/lovnish-verma)
+- **LinkedIn**: [Connect on LinkedIn](https://linkedin.com/in/lovnishverma)
 
 ### **Project Links**
 - 🌐 **Live Application**: https://lovnishverma-diabetes.hf.space/
