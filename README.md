@@ -23,6 +23,12 @@ short_description: Advanced AI-powered diabetes risk assessment platform.
 
 **🚀 [Live Demo](https://lovnishverma-diabetes.hf.space/) | 📊 [View Analytics](https://huggingface.co/datasets/LovnishVerma/diabetes-logs) | 📈 [Raw Data](https://huggingface.co/datasets/LovnishVerma/diabetes-logs/raw/main/audit_log.csv)**
 
+<center>
+  
+[GITHUB REPO LINK](https://github.com/lovnishverma/diabetes-streamlit)
+
+</center>
+  
 ---
 
 ![DiabetesAI Pro Dashboard](https://cdn-uploads.huggingface.co/production/uploads/6474405f90330355db146c76/kExsw3b0FM_zqJ5yILQwq.png)
