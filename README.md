@@ -19,7 +19,7 @@ Check out the configuration reference at https://huggingface.co/docs/hub/spaces-
 
 # View Logs
 
-https://huggingface.co/datasets/LovnishVerma/diabetes-logs
+https://huggingface.co/datasets/LovnishVerma/diabetes-logs/blob/main/audit_log.csv
 
 # Live View
 
