@@ -8,20 +8,21 @@ from pathlib import Path
 from huggingface_hub import HfApi, create_repo
 import os
 
-# 🔧 Basic setup: logging, folders, Hugging Face config
+# ===============================
+# 🔧 Basic setup
+# ===============================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 MODEL_DIR = Path("models")
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / "audit_log.csv"
 
 HF_USERNAME = "LovnishVerma"
 DATASET_REPO = f"{HF_USERNAME}/diabetes-logs"
-HF_TOKEN = os.getenv("HF_TOKEN")  # should be set in Streamlit secrets/environment
+HF_TOKEN = os.getenv("HF_TOKEN")  # set in Streamlit secrets/environment
 
-# Ensure Hugging Face dataset repo exists
+# ===============================
+# 🚀 Hugging Face repo setup
+# ===============================
 def ensure_dataset_repo():
     try:
         create_repo(
@@ -31,8 +32,8 @@ def ensure_dataset_repo():
             repo_type="dataset",
             exist_ok=True,
         )
-        # Push a README if missing
         api = HfApi()
+        # Upload a README if missing
         api.upload_file(
             path_or_fileobj="# Diabetes Risk Assessment Logs\nAuto-updated by Streamlit app.".encode(),
             path_in_repo="README.md",
@@ -47,18 +48,9 @@ if "repo_setup" not in st.session_state:
     ensure_dataset_repo()
     st.session_state.repo_setup = True
 
-# 🔄 Sync logs from Hugging Face to local on startup
-def sync_logs_on_start():
-    """Ensure local logs are synced with Hugging Face dataset on startup."""
-    try:
-        url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
-        remote_logs = pd.read_csv(url, dtype=str)
-        remote_logs.to_csv(LOG_FILE, index=False)  # overwrite local with remote
-        logger.info("Synced logs from Hugging Face into local file.")
-    except Exception as e:
-        logger.warning(f"Could not sync logs on startup: {e}")
-
-# 📦 Load model, scaler and medians
+# ===============================
+# 📦 Load ML resources
+# ===============================
 @st.cache_resource
 def load_resources():
     try:
@@ -81,7 +73,9 @@ def load_resources():
         st.error("Model files not found. Please check 'models/' directory.")
         return None, None, None
 
-# ✅ Input validation
+# ===============================
+# 🩺 Input validation
+# ===============================
 def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness,
                     insulin, bmi, diabetespedigree, age):
     errors = []
@@ -99,7 +93,9 @@ def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness,
         errors.append("Age too low for pregnancies.")
     return errors
 
-# 🤖 Run prediction
+# ===============================
+# 🤖 Prediction function
+# ===============================
 def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure,
                      skinthickness, insulin, bmi, diabetespedigree, age):
     try:
@@ -114,6 +110,7 @@ def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure
             "Age": age,
         }])
 
+        # Replace zeros with NaN and fill with medians
         zero_cols = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
         df[zero_cols] = df[zero_cols].replace(0, np.nan)
         df = df.fillna(medians)
@@ -127,9 +124,21 @@ def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure
         st.error("Prediction failed. Check inputs or model.")
         return None, None
 
-# 📝 Log results locally + sync with Hugging Face
+# ===============================
+# 📊 Remote logging helpers
+# ===============================
+def fetch_remote_logs():
+    """Fetch logs directly from Hugging Face dataset."""
+    try:
+        url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
+        return pd.read_csv(url, dtype=str)
+    except Exception as e:
+        logger.warning(f"No remote logs found: {e}")
+        return pd.DataFrame()
+
 def log_prediction(name, inputs, prediction, probability):
     try:
+        # Create new entry
         new_log = pd.DataFrame([{
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "name": name or "Anonymous",
@@ -146,71 +155,42 @@ def log_prediction(name, inputs, prediction, probability):
             "region": "India",
         }])
 
-        local_path = LOG_FILE
+        # Fetch existing logs from remote
+        logs = fetch_remote_logs()
+        updated = pd.concat([logs, new_log], ignore_index=True)
 
-        # Always try to load remote first (source of truth)
-        logs = None
-        try:
-            url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
-            logs = pd.read_csv(url, dtype=str)
-        except Exception as e:
-            logger.warning(f"No remote logs found or fetch failed: {e}")
+        # Save to temp file for upload
+        tmp_path = Path("audit_log.csv")
+        updated.to_csv(tmp_path, index=False)
 
-        # Merge local logs if they exist
-        if local_path.exists():
-            try:
-                local_logs = pd.read_csv(local_path, dtype=str)
-                if logs is not None:
-                    logs = pd.concat([logs, local_logs], ignore_index=True).drop_duplicates()
-                else:
-                    logs = local_logs
-            except Exception:
-                pass
-
-        # Start fresh if no logs at all
-        if logs is None:
-            logs = pd.DataFrame()
-
-        # Append new entry
-        logs = pd.concat([logs, new_log], ignore_index=True)
-
-        # Save to local
-        logs.to_csv(local_path, index=False)
-
-        # Push full updated file to HF
+        # Push back to Hugging Face
         if HF_TOKEN:
-            try:
-                api = HfApi()
-                api.upload_file(
-                    path_or_fileobj=str(local_path),
-                    path_in_repo="audit_log.csv",
-                    repo_id=DATASET_REPO,
-                    repo_type="dataset",
-                    token=HF_TOKEN,
-                    commit_message=f"Log update {datetime.now().isoformat()}",
-                    create_pr=False,
-                )
-                logger.info("✅ Logs synced with Hugging Face.")
-            except Exception as e:
-                logger.warning(f"Hugging Face upload failed: {e}")
+            api = HfApi()
+            api.upload_file(
+                path_or_fileobj=str(tmp_path),
+                path_in_repo="audit_log.csv",
+                repo_id=DATASET_REPO,
+                repo_type="dataset",
+                token=HF_TOKEN,
+                commit_message=f"Log update {datetime.now().isoformat()}",
+                create_pr=False,
+            )
+            logger.info("✅ Logs updated in Hugging Face repo.")
         else:
-            st.warning("⚠️ HF_TOKEN not set → logs only stored locally.")
-
+            st.warning("⚠️ HF_TOKEN not set → cannot upload logs.")
     except Exception as e:
         logger.error(f"❌ Log save failed: {e}")
         st.error("Could not save logs.")
 
-
-
-# 🎨 Main Streamlit App
+# ===============================
+# 🎨 Streamlit UI
+# ===============================
 def main():
     st.set_page_config(page_title="🩺 Diabetes Risk", page_icon="💉", layout="centered")
+
     st.markdown("<h1 style='text-align: center;'>🩺 Diabetes Risk Assessment</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555;'>AI Screening Tool • Powered by Hugging Face</p>", unsafe_allow_html=True)
     st.markdown("---")
-
-    # 🔄 Sync logs on startup
-    sync_logs_on_start()
 
     model, scaler, medians = load_resources()
     if model is None:
@@ -271,32 +251,36 @@ def main():
         if pred is None:
             return
 
+        # Save log remotely
         log_prediction(patient_name, inputs, pred, prob)
 
+        # Show result
         st.markdown("---")
         if pred:
             st.markdown(
                 f"""
-                <div style="padding:20px; border-radius:10px; background:#ffebee; border-left:5px solid #f44336; color:#c62828;">
+                <div style="padding:20px; border-radius:10px; background:#ffebee;
+                border-left:5px solid #f44336; color:#c62828;">
                     <h3>🔴 High Risk</h3>
-                    <p><strong>{patient_name}</strong>, AI detected a <strong>high diabetes risk</strong>.</p>
+                    <p><strong>{patient_name}</strong>, AI detected a
+                    <strong>high diabetes risk</strong>.</p>
                     <p><strong>Risk Score: {prob:.1f}%</strong></p>
                     <p><em>Please consult a doctor for further tests (e.g. HbA1c).</em></p>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """, unsafe_allow_html=True,
             )
         else:
             st.markdown(
                 f"""
-                <div style="padding:20px; border-radius:10px; background:#e8f5e8; border-left:5px solid #4caf50; color:#2e7d32;">
+                <div style="padding:20px; border-radius:10px; background:#e8f5e8;
+                border-left:5px solid #4caf50; color:#2e7d32;">
                     <h3>✅ Low Risk</h3>
-                    <p><strong>{patient_name}</strong>, your current risk is <strong>low</strong>.</p>
+                    <p><strong>{patient_name}</strong>, your current risk is
+                    <strong>low</strong>.</p>
                     <p><strong>Risk Score: {prob:.1f}%</strong></p>
                     <p><em>Keep maintaining a healthy lifestyle.</em></p>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """, unsafe_allow_html=True,
             )
 
         report = (
@@ -312,14 +296,15 @@ def main():
     # ---------------- Recent Logs ----------------
     st.markdown("---")
     st.subheader("📊 Recent Predictions (Last 5)")
-    try:
-        logs = pd.read_csv(LOG_FILE, dtype=str)
+    logs = fetch_remote_logs()
+    if not logs.empty:
         logs = logs.sort_values("timestamp", ascending=False).head(5)
         st.dataframe(logs)
-    except Exception as e:
-        st.info("⚠️ No logs available.")
-        logger.warning(f"Log fetch failed: {e}")
+    else:
+        st.info("⚠️ No logs available yet.")
 
+# ===============================
 # 🚀 Run app
+# ===============================
 if __name__ == "__main__":
     main()
