@@ -1,71 +1,120 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
-from imblearn.over_sampling import SMOTE
-from joblib import dump
+from joblib import load
 
-# Load dataset
-data = pd.read_csv("dia.csv")
+# Load model, scaler, and medians
+@st.cache_resource
+def load_resources():
+    try:
+        model = load("models/diabetes.sav")
+        scaler = load("models/scaler.sav")
+        medians = load("models/medians.sav")
+        return model, scaler, medians
+    except Exception as e:
+        st.error(f"❌ Error loading resources: {str(e)}")
+        return None, None, None
 
-# Features & Target
-X = data.drop(columns=["Outcome"])
-y = data["Outcome"]
+# Input validation
+def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age):
+    errors = []
+    warnings = []
+    if glucose <= 0:
+        errors.append("Glucose level must be greater than 0")
+    if bloodpressure <= 0:
+        errors.append("Blood pressure must be greater than 0")
+    if bmi <= 0:
+        errors.append("BMI must be greater than 0")
+    if age <= 0:
+        errors.append("Age must be greater than 0")
+    if pregnancies > 0 and age < 12:
+        errors.append("Age seems too low for number of pregnancies")
+    return errors, warnings
 
-# Replace zero values in certain columns (except Pregnancies)
-cols_with_zero = ["Glucose", "BloodPressure",
-                  "SkinThickness", "Insulin", "BMI"]
-X[cols_with_zero] = X[cols_with_zero].replace(0, np.nan)
+# Preprocess input
+def preprocess_input(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age, scaler, medians):
+    try:
+        input_dict = {
+            "Pregnancies": [pregnancies],
+            "Glucose": [glucose],
+            "BloodPressure": [bloodpressure],
+            "SkinThickness": [skinthickness],
+            "Insulin": [insulin],
+            "BMI": [bmi],
+            "DiabetesPedigreeFunction": [diabetespedigree],
+            "Age": [age],
+        }
+        df = pd.DataFrame(input_dict)
 
-# Save median values used for imputation
-medians = X.median().to_dict()
+        # Replace zeros with NaN for selected cols
+        cols_with_zero = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
+        df[cols_with_zero] = df[cols_with_zero].replace(0, np.nan)
 
-# Fill missing with median
-X = X.fillna(medians)
+        # Fill NaN with training medians
+        df = df.fillna(medians)
 
-# Train-Test Split
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
+        # Scale
+        if scaler is not None:
+            input_scaled = scaler.transform(df)
+        else:
+            input_scaled = df.values
 
-# Scale
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+        return input_scaled
+    except Exception as e:
+        st.error(f"Error preprocessing input data: {str(e)}")
+        return None
 
-# Balance dataset with SMOTE
-sm = SMOTE(random_state=42)
-X_train_bal, y_train_bal = sm.fit_resample(X_train_scaled, y_train)
+# Prediction
+def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age):
+    input_data = preprocess_input(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age, scaler, medians)
+    if input_data is None:
+        return None, None
+    prediction = model.predict(input_data)
+    prob = model.predict_proba(input_data)[0][1] * 100
+    return bool(prediction[0]), prob
 
-# Train Random Forest
-model = RandomForestClassifier(n_estimators=200, random_state=42)
-model.fit(X_train_bal, y_train_bal)
+# Display results
+def display_results(name, prediction, probability, errors, warnings):
+    if prediction is None:
+        st.error("❌ Could not make prediction.")
+        return
+    if prediction:
+        st.error(f"🔴 Hello {name}, risk assessment: **POSITIVE**")
+        st.error(f"**Risk Probability: {probability:.1f}%**")
+    else:
+        st.success(f"✅ Hello {name}, risk assessment: **NEGATIVE**")
+        st.success(f"**Risk Probability: {probability:.1f}%**")
 
-# Evaluation @ Default Threshold 0.5
-y_pred = model.predict(X_test_scaled)
-acc = accuracy_score(y_test, y_pred)
-print(" Default Threshold Accuracy:", acc)
-print("\nClassification Report (Threshold=0.5):\n",
-      classification_report(y_test, y_pred))
+# Streamlit App
+def main():
+    st.set_page_config(page_title="Diabetes Prediction", page_icon="💉")
+    st.title("🩺 Diabetes Risk Assessment Tool")
 
-# Threshold Tuning
-print("\n Threshold Tuning Results")
-y_proba = model.predict_proba(X_test_scaled)[:, 1]
+    model, scaler, medians = load_resources()
+    if model is None:
+        st.stop()
 
-for thresh in [0.3, 0.4, 0.5, 0.6]:
-    y_pred_thresh = (y_proba >= thresh).astype(int)
-    acc_thresh = accuracy_score(y_test, y_pred_thresh)
-    print(f"\nThreshold = {thresh}")
-    print("Accuracy:", acc_thresh)
-    print(classification_report(y_test, y_pred_thresh, digits=3))
+    st.sidebar.header("📋 Patient Information")
+    name = st.sidebar.text_input("👤 Full Name")
 
-# Save model, scaler & medians
-os.makedirs("models", exist_ok=True)
-dump(model, "models/diabetes.sav")
-dump(scaler, "models/scaler.sav")
-dump(medians, "models/medians.sav")
+    pregnancies = st.sidebar.number_input("Pregnancies", 0, 20, 0)
+    glucose = st.sidebar.number_input("Glucose (mg/dL)", 0, 300, 120)
+    bloodpressure = st.sidebar.number_input("Blood Pressure (mmHg)", 0, 200, 80)
+    skinthickness = st.sidebar.number_input("Skin Thickness (mm)", 0, 100, 20)
+    insulin = st.sidebar.number_input("Insulin (mu U/ml)", 0, 500, 0)
+    bmi = st.sidebar.number_input("BMI", 0.0, 50.0, 25.0, format="%.1f")
+    diabetespedigree = st.sidebar.number_input("Diabetes Pedigree", 0.0, 2.5, 0.5, format="%.3f")
+    age = st.sidebar.number_input("Age", 1, 120, 30)
 
-print("Final Model, Scaler, and Medians saved in 'models/' folder.")
+    if st.sidebar.button("🔍 Assess Risk"):
+        errors, warnings = validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age)
+        if errors:
+            for e in errors:
+                st.error(f"• {e}")
+            return
+        prediction, probability = predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, diabetespedigree, age)
+        display_results(name, prediction, probability, errors, warnings)
+
+if __name__ == "__main__":
+    main()
