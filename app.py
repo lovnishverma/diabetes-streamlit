@@ -106,19 +106,19 @@ def preprocess_input(pregnancies, glucose, bloodpressure, skinthickness, insulin
 # --- Prediction with Confidence ---
 def predict_diabetes(model, scaler, medians, **inputs):
     try:
-        # Only pass clinical features
-        valid_inputs = {
-            "pregnancies": inputs["pregnancies"],
-            "glucose": inputs["glucose"],
-            "bloodpressure": inputs["bloodpressure"],
-            "skinthickness": inputs["skinthickness"],
-            "insulin": inputs["insulin"],
-            "bmi": inputs["bmi"],
-            "diabetespedigreefunction": inputs["diabetespedigree"],  # match column name if needed
-            "age": inputs["age"]
+        # Match the exact feature names used during training
+        input_dict = {
+            "Pregnancies": inputs["pregnancies"],
+            "Glucose": inputs["glucose"],
+            "BloodPressure": inputs["bloodpressure"],
+            "SkinThickness": inputs["skinthickness"],
+            "Insulin": inputs["insulin"],
+            "BMI": inputs["bmi"],
+            "DiabetesPedigreeFunction": inputs["diabetespedigree"],
+            "Age": inputs["age"]
         }
 
-        input_data = preprocess_input(scaler=scaler, medians=medians, **valid_inputs)
+        input_data = preprocess_input(scaler=scaler, medians=medians, **input_dict)
         if input_data is None:
             return None, None
 
@@ -128,7 +128,6 @@ def predict_diabetes(model, scaler, medians, **inputs):
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
         return None, None
-
 
 # --- Audit Logging (Critical for Hospitals) ---
 def log_prediction(name, inputs, prediction, probability):
