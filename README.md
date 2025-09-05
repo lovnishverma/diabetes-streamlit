@@ -15,11 +15,22 @@ Check out the configuration reference at https://huggingface.co/docs/hub/spaces-
 
 # Diabetes Prediction App
 
+"""
+Streamlit Diabetes Prediction App
+---------------------------------
+- Trains/loads a RandomForest model
+- Accepts patient input for diabetes prediction
+- Saves each prediction to an audit log (local + Hugging Face dataset repo)
+- Displays the 5 most recent predictions
+"""
+
 ![image/png](https://cdn-uploads.huggingface.co/production/uploads/6474405f90330355db146c76/iLbZiplXJ6W96wDuWXipN.png)
 
 # View Logs
 
 https://huggingface.co/datasets/LovnishVerma/diabetes-logs/blob/main/audit_log.csv
+
+https://huggingface.co/datasets/LovnishVerma/diabetes-logs/raw/main/audit_log.csv
 
 # Live View
 
