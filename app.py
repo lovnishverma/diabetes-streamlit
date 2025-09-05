@@ -22,17 +22,18 @@ def load_resources():
     try:
         model = joblib.load(MODEL_DIR / "diabetes.sav")
         scaler = joblib.load(MODEL_DIR / "scaler.sav")
-        medians = joblib.load(MODEL_DIR / "medians.sav")  # dict: key = column name
+        medians = joblib.load(MODEL_DIR / "medians.sav")  # dict
 
-        # Validate medians keys
-        expected_keys = {
+        # Validate required keys
+        expected_features = {
             "Pregnancies", "Glucose", "BloodPressure", "SkinThickness",
             "Insulin", "BMI", "DiabetesPedigreeFunction", "Age"
         }
-        if not expected_keys.issubset(medians.keys()):
-            raise ValueError(f"Medians missing keys. Found: {list(medians.keys())}")
+        if not expected_features.issubset(medians.keys()):
+            missing = expected_features - set(medians.keys())
+            raise ValueError(f"Medians missing keys: {missing}")
 
-        logger.info("✅ Model, scaler, and medians loaded successfully.")
+        logger.info("✅ Model, scaler, and medians loaded.")
         return model, scaler, medians
 
     except Exception as e:
@@ -46,13 +47,13 @@ def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin,
     errors = []
     warnings = []
 
-    if glucose <= 0 or glucose > 300:
+    if not (0 < glucose <= 300):
         errors.append("Glucose must be 1–300 mg/dL.")
-    if bloodpressure <= 0 or bloodpressure > 200:
+    if not (0 < bloodpressure <= 200):
         errors.append("Blood Pressure must be 1–200 mmHg.")
-    if bmi <= 0 or bmi > 70:
+    if not (0 < bmi <= 70):
         errors.append("BMI must be 1–70 kg/m².")
-    if age <= 0 or age > 120:
+    if not (0 < age <= 120):
         errors.append("Age must be 1–120 years.")
     if pregnancies > 20:
         errors.append("Pregnancies should not exceed 20.")
@@ -68,8 +69,8 @@ def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness, insulin,
 def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure,
                      skinthickness, insulin, bmi, diabetespedigree, age):
     try:
-        # Match training column names exactly
-        input_data = {
+        # Use exact column names from training
+        input_dict = {
             "Pregnancies": [pregnancies],
             "Glucose": [glucose],
             "BloodPressure": [bloodpressure],
@@ -79,31 +80,31 @@ def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure
             "DiabetesPedigreeFunction": [diabetespedigree],
             "Age": [age]
         }
-        df = pd.DataFrame(input_data)
+        df = pd.DataFrame(input_dict)
 
-        # Replace 0s with NaN for clinical realism
+        # Replace 0s with NaN
         zero_sensitive = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
         df[zero_sensitive] = df[zero_sensitive].replace(0, np.nan)
 
-        # Fill NaN using training medians (dict keys match column names)
+        # Fill with training medians
         df = df.fillna(value=medians)
 
-        # Scale using loaded scaler
+        # Scale
         df_scaled = scaler.transform(df)
 
         # Predict
         prediction = model.predict(df_scaled)[0]
-        probability = model.predict_proba(df_scaled)[0][1] * 100  # % chance of diabetes
+        probability = model.predict_proba(df_scaled)[0][1] * 100
 
         return bool(prediction), float(probability)
 
     except Exception as e:
         logger.error(f"❌ Prediction failed: {e}")
-        st.error("🔧 Internal error during prediction. Please try again.")
+        st.error("🔧 Internal error during prediction.")
         return None, None
 
 
-# --- Audit Log ---
+# --- Audit Logging ---
 def log_prediction(name, inputs, prediction, probability):
     log_file = LOG_DIR / "audit_log.csv"
     entry = {
@@ -128,9 +129,9 @@ def log_prediction(name, inputs, prediction, probability):
 def show_explanation():
     st.markdown("### 🔍 How This Works")
     st.markdown("""
-    - **AI Model**: Trained on 100,000+ global diabetes cases, including Indian populations.
-    - **Key Factors**: High glucose, BMI, family history, and age increase risk.
-    - **Purpose**: Early screening tool — not a replacement for lab tests.
+    - **AI Model**: Random Forest trained on clinical data.
+    - **Key Factors**: Glucose, BMI, family history, and age.
+    - **Purpose**: Early screening tool — not a diagnosis.
     - *Complies with India’s Digital Personal Data Protection (DPDPA) Act.*
     """)
 
@@ -147,7 +148,6 @@ def main():
     st.markdown("<p style='text-align: center; color: #555;'>AI-powered screening • Trusted in Indian Hospitals</p>", unsafe_allow_html=True)
     st.markdown("---")
 
-    # Load resources
     model, scaler, medians = load_resources()
     if model is None:
         st.stop()
@@ -172,31 +172,41 @@ def main():
         )
         age = st.number_input("Age (years)", 1, 120, 30)
 
+        # Create a unique key for current input state
+        current_inputs = {
+            "name": name,
+            "pregnancies": pregnancies,
+            "glucose": glucose,
+            "bloodpressure": bloodpressure,
+            "skinthickness": skinthickness,
+            "insulin": insulin,
+            "bmi": bmi,
+            "diabetespedigree": diabetespedigree,
+            "age": age
+        }
+
+        # Reset prediction if inputs changed
+        if st.session_state.get("last_inputs") != current_inputs:
+            st.session_state.pop("run_prediction", None)
+
+        st.session_state.last_inputs = current_inputs
+
         st.markdown("---")
         if st.button("🔍 Assess Diabetes Risk", type="primary", use_container_width=True):
             st.session_state.run_prediction = True
-            st.session_state.inputs = {
-                "name": name,
-                "pregnancies": pregnancies,
-                "glucose": glucose,
-                "bloodpressure": bloodpressure,
-                "skinthickness": skinthickness,
-                "insulin": insulin,
-                "bmi": bmi,
-                "diabetespedigree": diabetespedigree,
-                "age": age
-            }
+            st.session_state.inputs = current_inputs.copy()
 
-    # Run Prediction
-    if st.session_state.get("run_prediction"):
-        inputs = st.session_state.inputs
-        name = inputs.pop("name")  # Remove name
+    # Run Prediction Only If Requested
+    if st.session_state.get("run_prediction") and "inputs" in st.session_state:
+        inputs = st.session_state.inputs.copy()
+        name = inputs.pop("name", "Patient")  # Safe pop with default
 
         errors, warnings = validate_inputs(**inputs)
         if errors:
             st.error("🔴 **Input Errors**")
             for e in errors:
                 st.write(f"• {e}")
+            st.session_state.run_prediction = False
             return
 
         if warnings:
@@ -208,11 +218,12 @@ def main():
             prediction, probability = predict_diabetes(model, scaler, medians, **inputs)
 
         if prediction is None:
-            st.error("🔴 Prediction failed. Please contact support.")
+            st.error("🔴 Prediction failed. Please try again.")
+            st.session_state.run_prediction = False
             return
 
-        # Log result
-        log_prediction(name or "Unknown", st.session_state.inputs, prediction, probability)
+        # Log the result
+        log_prediction(name, inputs, prediction, probability)
 
         # Display Result
         st.markdown("---")
@@ -220,7 +231,7 @@ def main():
             st.markdown(f"""
             <div style="padding: 20px; border-radius: 10px; background-color: #ffebee; border-left: 5px solid #f44336; color: #c62828;">
                 <h3>🔴 High Risk of Diabetes</h3>
-                <p><strong>Hello {name or 'Patient'},</strong> you are at <strong>high risk</strong>.</p>
+                <p><strong>Hello {name},</strong> you are at <strong>high risk</strong>.</p>
                 <p style="font-size: 1.2em;">🩸 Risk Probability: <strong>{probability:.1f}%</strong></p>
                 <p><em>🩺 Recommendation: Consult a physician and perform an HbA1c or OGTT test.</em></p>
             </div>
@@ -229,7 +240,7 @@ def main():
             st.markdown(f"""
             <div style="padding: 20px; border-radius: 10px; background-color: #e8f5e8; border-left: 5px solid #4caf50; color: #2e7d32;">
                 <h3>✅ Low Risk of Diabetes</h3>
-                <p><strong>Hello {name or 'Patient'},</strong> your risk is currently <strong>low</strong>.</p>
+                <p><strong>Hello {name},</strong> your risk is currently <strong>low</strong>.</p>
                 <p style="font-size: 1.2em;">📊 Risk Score: <strong>{probability:.1f}%</strong></p>
                 <p><em>💡 Tip: Maintain healthy diet and regular exercise to stay protected.</em></p>
             </div>
@@ -238,11 +249,11 @@ def main():
         # Show explanation
         show_explanation()
 
-        # Download Report
+        # Generate Report
         report = f"""
         Diabetes Risk Assessment Report
         ===============================
-        Patient: {name or 'Unknown'}
+        Patient: {name}
         Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
         Risk Level: {'High' if prediction else 'Low'}
         Probability: {probability:.1f}%
@@ -258,9 +269,12 @@ def main():
         st.download_button(
             label="📥 Download Report",
             data=report,
-            file_name=f"Diabetes_Risk_{name}_{datetime.now().strftime('%Y%m%d')}.txt",
+            file_name=f"Diabetes_Risk_{name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.txt",
             mime="text/plain"
         )
+
+        # Prevent auto-rerun
+        st.session_state.run_prediction = False
 
 
 if __name__ == "__main__":
