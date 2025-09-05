@@ -929,7 +929,7 @@ def main():
         </p>
         <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
             <p style="font-size: 0.9rem; color: rgba(255,255,255,0.8);">
-                © 2024 <strong>Lovnish Verma</strong> | NIELIT Chandigarh
+                © 2025 <strong>Lovnish Verma</strong> | NIELIT Chandigarh
             </p>
             <p style="font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-top: 0.5rem;">
                 Developed with ❤️ using Streamlit & Machine Learning
