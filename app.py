@@ -8,9 +8,7 @@ from pathlib import Path
 from huggingface_hub import HfApi, create_repo
 import os
 
-# -------------------------------------------------------------------
 # 🔧 Basic setup: logging, folders, Hugging Face config
-# -------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -23,9 +21,7 @@ HF_USERNAME = "LovnishVerma"
 DATASET_REPO = f"{HF_USERNAME}/diabetes-logs"
 HF_TOKEN = os.getenv("HF_TOKEN")  # should be set in Streamlit secrets/environment
 
-# -------------------------------------------------------------------
 # 📂 Ensure Hugging Face dataset repo exists
-# -------------------------------------------------------------------
 def ensure_dataset_repo():
     try:
         create_repo(
@@ -51,9 +47,7 @@ if "repo_setup" not in st.session_state:
     ensure_dataset_repo()
     st.session_state.repo_setup = True
 
-# -------------------------------------------------------------------
 # 🔄 Sync logs from Hugging Face to local on startup
-# -------------------------------------------------------------------
 def sync_logs_on_start():
     """Ensure local logs are synced with Hugging Face dataset on startup."""
     try:
@@ -64,9 +58,7 @@ def sync_logs_on_start():
     except Exception as e:
         logger.warning(f"Could not sync logs on startup: {e}")
 
-# -------------------------------------------------------------------
 # 📦 Load model, scaler and medians
-# -------------------------------------------------------------------
 @st.cache_resource
 def load_resources():
     try:
@@ -89,9 +81,7 @@ def load_resources():
         st.error("Model files not found. Please check 'models/' directory.")
         return None, None, None
 
-# -------------------------------------------------------------------
 # ✅ Input validation
-# -------------------------------------------------------------------
 def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness,
                     insulin, bmi, diabetespedigree, age):
     errors = []
@@ -109,9 +99,7 @@ def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness,
         errors.append("Age too low for pregnancies.")
     return errors
 
-# -------------------------------------------------------------------
 # 🤖 Run prediction
-# -------------------------------------------------------------------
 def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure,
                      skinthickness, insulin, bmi, diabetespedigree, age):
     try:
@@ -139,9 +127,7 @@ def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure
         st.error("Prediction failed. Check inputs or model.")
         return None, None
 
-# -------------------------------------------------------------------
 # 📝 Log results locally + sync with Hugging Face
-# -------------------------------------------------------------------
 def log_prediction(name, inputs, prediction, probability):
     try:
         new_log = pd.DataFrame([{
@@ -189,9 +175,7 @@ def log_prediction(name, inputs, prediction, probability):
         logger.error(f"Log save failed: {e}")
         st.error("Could not save logs.")
 
-# -------------------------------------------------------------------
 # 🎨 Main Streamlit App
-# -------------------------------------------------------------------
 def main():
     st.set_page_config(page_title="🩺 Diabetes Risk", page_icon="💉", layout="centered")
     st.markdown("<h1 style='text-align: center;'>🩺 Diabetes Risk Assessment</h1>", unsafe_allow_html=True)
@@ -309,8 +293,6 @@ def main():
         st.info("⚠️ No logs available.")
         logger.warning(f"Log fetch failed: {e}")
 
-# -------------------------------------------------------------------
 # 🚀 Run app
-# -------------------------------------------------------------------
 if __name__ == "__main__":
     main()
