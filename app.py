@@ -122,8 +122,7 @@ def log_prediction(name, inputs, prediction, probability):
 
         # Load existing logs or start fresh
         try:
-            # ✅ CORRECTED: No extra spaces in URL
-            url = f"https://huggingface.co/datasets/{DATASET_REPO}/resolve/main/audit_log.csv"
+            url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
             existing = pd.read_csv(url)
             updated = pd.concat([existing, new_log], ignore_index=True)
         except Exception as e:
@@ -240,12 +239,12 @@ def main():
     # Optional: Show public logs
     if st.checkbox("📊 View Public Logs (last 10)"):
         try:
-            # ✅ CORRECTED: No extra spaces
-            url = f"https://huggingface.co/datasets/{DATASET_REPO}/resolve/main/audit_log.csv"
-            logs = pd.read_csv(url)
+            url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
+            logs = pd.read_csv(url, dtype=str)
             st.dataframe(logs.tail(10))
         except Exception as e:
-            st.info("No logs yet. Make a prediction!")
+            st.info("⚠️ No logs yet or failed to fetch.")
+            logger.warning(f"Log fetch failed: {e}")
 
 if __name__ == "__main__":
     main()
