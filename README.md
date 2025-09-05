@@ -17,6 +17,9 @@ Check out the configuration reference at https://huggingface.co/docs/hub/spaces-
 # Diabetes Prediction App
 
 
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/6474405f90330355db146c76/kExsw3b0FM_zqJ5yILQwq.png)
+
+
 Streamlit Diabetes Prediction App
 ---------------------------------
 - Trains/loads a RandomForest model
@@ -25,7 +28,8 @@ Streamlit Diabetes Prediction App
 - Displays the 5 most recent predictions
 
 
-![image/png](https://cdn-uploads.huggingface.co/production/uploads/6474405f90330355db146c76/iLbZiplXJ6W96wDuWXipN
+---
+
 
 # View Logs
 
