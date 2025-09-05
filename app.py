@@ -9,9 +9,7 @@ from sklearn.metrics import accuracy_score, classification_report
 from imblearn.over_sampling import SMOTE
 from joblib import dump
 
-# ==========================
 # Load dataset
-# ==========================
 data = pd.read_csv("dia.csv")
 
 # Features & Target
@@ -40,25 +38,19 @@ X_test_scaled = scaler.transform(X_test)
 sm = SMOTE(random_state=42)
 X_train_bal, y_train_bal = sm.fit_resample(X_train_scaled, y_train)
 
-# ==========================
 # Train Random Forest
-# ==========================
 model = RandomForestClassifier(n_estimators=200, random_state=42)
 model.fit(X_train_bal, y_train_bal)
 
-# ==========================
 # Evaluation @ Default Threshold 0.5
-# ==========================
 y_pred = model.predict(X_test_scaled)
 acc = accuracy_score(y_test, y_pred)
-print("✅ Default Threshold Accuracy:", acc)
+print(" Default Threshold Accuracy:", acc)
 print("\nClassification Report (Threshold=0.5):\n",
       classification_report(y_test, y_pred))
 
-# ==========================
 # Threshold Tuning
-# ==========================
-print("\n🔎 Threshold Tuning Results")
+print("\n Threshold Tuning Results")
 y_proba = model.predict_proba(X_test_scaled)[:, 1]
 
 for thresh in [0.3, 0.4, 0.5, 0.6]:
@@ -68,9 +60,7 @@ for thresh in [0.3, 0.4, 0.5, 0.6]:
     print("Accuracy:", acc_thresh)
     print(classification_report(y_test, y_pred_thresh, digits=3))
 
-# ==========================
 # Feature Importance
-# ==========================
 importances = model.feature_importances_
 features = X.columns
 sorted_idx = np.argsort(importances)[::-1]
@@ -82,10 +72,8 @@ plt.title("Feature Importance (RandomForest)")
 plt.tight_layout()
 plt.show()
 
-# ==========================
 # Save model & scaler
-# ==========================
 os.makedirs("models", exist_ok=True)
 dump(model, "models/diabetes.sav")
 dump(scaler, "models/scaler.sav")
-print("✅ Final Model and Scaler saved in 'models/' folder.")
+print(" Final Model and Scaler saved in 'models/' folder.")
