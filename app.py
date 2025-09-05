@@ -106,17 +106,24 @@ def preprocess_input(pregnancies, glucose, bloodpressure, skinthickness, insulin
 # --- Prediction with Confidence ---
 def predict_diabetes(model, scaler, medians, **inputs):
     try:
-        input_data = preprocess_input(
-            scaler=scaler,
-            medians=medians,
-            **inputs
-        )
+        # Only pass clinical features
+        valid_inputs = {
+            "pregnancies": inputs["pregnancies"],
+            "glucose": inputs["glucose"],
+            "bloodpressure": inputs["bloodpressure"],
+            "skinthickness": inputs["skinthickness"],
+            "insulin": inputs["insulin"],
+            "bmi": inputs["bmi"],
+            "diabetespedigreefunction": inputs["diabetespedigree"],  # match column name if needed
+            "age": inputs["age"]
+        }
+
+        input_data = preprocess_input(scaler=scaler, medians=medians, **valid_inputs)
         if input_data is None:
             return None, None
 
         prediction = model.predict(input_data)[0]
-        probability = model.predict_proba(input_data)[0][1] * 100  # % chance of diabetes
-
+        probability = model.predict_proba(input_data)[0][1] * 100
         return bool(prediction), float(probability)
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
