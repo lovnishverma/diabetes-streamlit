@@ -9,7 +9,7 @@ from huggingface_hub import HfApi, create_repo
 import os
 
 # ===============================
-# 🔧 Basic setup
+# 🔧 Setup
 # ===============================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,10 +18,10 @@ MODEL_DIR = Path("models")
 
 HF_USERNAME = "LovnishVerma"
 DATASET_REPO = f"{HF_USERNAME}/diabetes-logs"
-HF_TOKEN = os.getenv("HF_TOKEN")  # set in Streamlit secrets/environment
+HF_TOKEN = os.getenv("HF_TOKEN")  # make sure this is set in Streamlit Secrets
 
 # ===============================
-# 🚀 Hugging Face repo setup
+# 🚀 Hugging Face Repo
 # ===============================
 def ensure_dataset_repo():
     try:
@@ -33,7 +33,6 @@ def ensure_dataset_repo():
             exist_ok=True,
         )
         api = HfApi()
-        # Upload a README if missing
         api.upload_file(
             path_or_fileobj="# Diabetes Risk Assessment Logs\nAuto-updated by Streamlit app.".encode(),
             path_in_repo="README.md",
@@ -42,14 +41,14 @@ def ensure_dataset_repo():
             repo_type="dataset",
         )
     except Exception as e:
-        logger.info(f"Dataset repo setup issue: {e}")
+        logger.warning(f"Repo setup issue: {e}")
 
 if "repo_setup" not in st.session_state:
     ensure_dataset_repo()
     st.session_state.repo_setup = True
 
 # ===============================
-# 📦 Load ML resources
+# 📦 Load Model + Scaler + Medians
 # ===============================
 @st.cache_resource
 def load_resources():
@@ -57,44 +56,28 @@ def load_resources():
         model = joblib.load(MODEL_DIR / "diabetes.sav")
         scaler = joblib.load(MODEL_DIR / "scaler.sav")
         medians = joblib.load(MODEL_DIR / "medians.sav")
-
-        expected = {
-            "Pregnancies", "Glucose", "BloodPressure",
-            "SkinThickness", "Insulin", "BMI",
-            "DiabetesPedigreeFunction", "Age",
-        }
-        if not expected.issubset(medians.keys()):
-            raise ValueError("Medians file missing required columns")
-
-        logger.info("Model, scaler and medians loaded successfully.")
         return model, scaler, medians
     except Exception as e:
-        logger.error(f"Resource load failed: {e}")
-        st.error("Model files not found. Please check 'models/' directory.")
+        st.error("Model files not found. Please upload them in 'models/'")
+        logger.error(e)
         return None, None, None
 
 # ===============================
-# 🩺 Input validation
+# 🩺 Validation
 # ===============================
 def validate_inputs(pregnancies, glucose, bloodpressure, skinthickness,
                     insulin, bmi, diabetespedigree, age):
     errors = []
-    if not (0 < glucose <= 300):
-        errors.append("Glucose must be between 1–300 mg/dL.")
-    if not (0 < bloodpressure <= 200):
-        errors.append("Blood Pressure must be between 1–200 mmHg.")
-    if not (0 < bmi <= 70):
-        errors.append("BMI must be between 1–70.")
-    if not (0 < age <= 120):
-        errors.append("Age must be between 1–120 years.")
-    if pregnancies > 20:
-        errors.append("Pregnancies cannot exceed 20.")
-    if age < 15 and pregnancies > 0:
-        errors.append("Age too low for pregnancies.")
+    if not (0 < glucose <= 300): errors.append("Glucose must be 1–300.")
+    if not (0 < bloodpressure <= 200): errors.append("Blood Pressure 1–200.")
+    if not (0 < bmi <= 70): errors.append("BMI must be 1–70.")
+    if not (0 < age <= 120): errors.append("Age must be 1–120.")
+    if pregnancies > 20: errors.append("Pregnancies cannot exceed 20.")
+    if age < 15 and pregnancies > 0: errors.append("Age too low for pregnancies.")
     return errors
 
 # ===============================
-# 🤖 Prediction function
+# 🤖 Predict
 # ===============================
 def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure,
                      skinthickness, insulin, bmi, diabetespedigree, age):
@@ -109,8 +92,7 @@ def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure
             "DiabetesPedigreeFunction": diabetespedigree,
             "Age": age,
         }])
-
-        # Replace zeros with NaN and fill with medians
+        # replace zeros with medians
         zero_cols = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
         df[zero_cols] = df[zero_cols].replace(0, np.nan)
         df = df.fillna(medians)
@@ -120,25 +102,27 @@ def predict_diabetes(model, scaler, medians, pregnancies, glucose, bloodpressure
         prob = model.predict_proba(scaled)[0][1] * 100
         return bool(pred), float(prob)
     except Exception as e:
-        logger.error(f"Prediction error: {e}")
-        st.error("Prediction failed. Check inputs or model.")
+        logger.error(e)
+        st.error("Prediction failed.")
         return None, None
 
 # ===============================
-# 📊 Remote logging helpers
+# 📊 Logging
 # ===============================
 def fetch_remote_logs():
-    """Fetch logs directly from Hugging Face dataset."""
     try:
         url = f"https://huggingface.co/datasets/{DATASET_REPO}/raw/main/audit_log.csv"
         return pd.read_csv(url, dtype=str)
     except Exception as e:
-        logger.warning(f"No remote logs found: {e}")
+        logger.info(f"No logs yet: {e}")
         return pd.DataFrame()
 
 def log_prediction(name, inputs, prediction, probability):
     try:
-        # Create new entry
+        # Fetch old logs
+        logs = fetch_remote_logs()
+
+        # New row
         new_log = pd.DataFrame([{
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "name": name or "Anonymous",
@@ -155,64 +139,55 @@ def log_prediction(name, inputs, prediction, probability):
             "region": "India",
         }])
 
-        # Fetch existing logs from remote
-        logs = fetch_remote_logs()
+        # Merge with existing
         updated = pd.concat([logs, new_log], ignore_index=True)
 
-        # Save to temp file for upload
-        tmp_path = Path("audit_log.csv")
-        updated.to_csv(tmp_path, index=False)
+        # Save temp CSV
+        tmp_file = Path("audit_log.csv")
+        updated.to_csv(tmp_file, index=False)
 
-        # Push back to Hugging Face
+        # Upload back
         if HF_TOKEN:
             api = HfApi()
             api.upload_file(
-                path_or_fileobj=str(tmp_path),
+                path_or_fileobj=str(tmp_file),
                 path_in_repo="audit_log.csv",
                 repo_id=DATASET_REPO,
                 repo_type="dataset",
                 token=HF_TOKEN,
-                commit_message=f"Log update {datetime.now().isoformat()}",
+                commit_message=f"Update logs {datetime.now().isoformat()}",
                 create_pr=False,
             )
-            logger.info("✅ Logs updated in Hugging Face repo.")
         else:
-            st.warning("⚠️ HF_TOKEN not set → cannot upload logs.")
+            st.warning("HF_TOKEN not set → logs not uploaded")
     except Exception as e:
-        logger.error(f"❌ Log save failed: {e}")
-        st.error("Could not save logs.")
+        logger.error(f"Log update failed: {e}")
 
 # ===============================
-# 🎨 Streamlit UI
+# 🎨 Streamlit App
 # ===============================
 def main():
-    st.set_page_config(page_title="🩺 Diabetes Risk", page_icon="💉", layout="centered")
+    st.set_page_config(page_title="🩺 Diabetes Risk", page_icon="💉")
 
-    st.markdown("<h1 style='text-align: center;'>🩺 Diabetes Risk Assessment</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #555;'>AI Screening Tool • Powered by Hugging Face</p>", unsafe_allow_html=True)
-    st.markdown("---")
+    st.title("🩺 Diabetes Risk Assessment")
 
     model, scaler, medians = load_resources()
-    if model is None:
-        st.stop()
+    if model is None: st.stop()
 
-    # ---------------- Sidebar Inputs ----------------
+    # Sidebar
     with st.sidebar:
-        st.header("📋 Patient Info")
-        name = st.text_input("Name (Optional)", placeholder="e.g., Rajesh")
-
-        st.markdown("### Clinical Inputs")
+        st.header("Patient Info")
+        name = st.text_input("Name (Optional)")
         pregnancies = st.number_input("Pregnancies", 0, 20, 0)
         glucose = st.number_input("Glucose (mg/dL)", 0, 300, 120)
         bloodpressure = st.number_input("Blood Pressure (mmHg)", 0, 200, 80)
         skinthickness = st.number_input("Skin Thickness (mm)", 0, 100, 20)
-        insulin = st.number_input("Insulin (μU/mL)", 0, 500, 0)
+        insulin = st.number_input("Insulin", 0, 500, 0)
         bmi = st.number_input("BMI", 0.0, 70.0, 25.0, format="%.1f")
         diabetespedigree = st.number_input("Diabetes Pedigree", 0.0, 3.0, 0.5, format="%.3f")
         age = st.number_input("Age", 1, 120, 30)
 
-        current_inputs = {
-            "name": name,
+        inputs = {
             "pregnancies": pregnancies,
             "glucose": glucose,
             "bloodpressure": bloodpressure,
@@ -223,88 +198,24 @@ def main():
             "age": age,
         }
 
-        if st.session_state.get("last_inputs") != current_inputs:
-            st.session_state.pop("run_prediction", None)
-        st.session_state.last_inputs = current_inputs
+        if st.button("🔍 Assess Risk"):
+            errors = validate_inputs(**inputs)
+            if errors:
+                st.error("Please fix:")
+                for e in errors: st.write(f"- {e}")
+            else:
+                pred, prob = predict_diabetes(model, scaler, medians, **inputs)
+                if pred is not None:
+                    log_prediction(name, inputs, pred, prob)
+                    st.success(f"Risk: {'Positive' if pred else 'Negative'} ({prob:.1f}%)")
 
-        st.markdown("---")
-        if st.button("🔍 Assess Risk", type="primary", use_container_width=True):
-            st.session_state.run_prediction = True
-            st.session_state.inputs = current_inputs.copy()
-
-    # ---------------- Prediction ----------------
-    if st.session_state.get("run_prediction") and "inputs" in st.session_state:
-        inputs = st.session_state.inputs.copy()
-        patient_name = inputs.pop("name", "Patient")
-
-        errors = validate_inputs(**inputs)
-        if errors:
-            st.error("⚠️ Please fix the following:")
-            for e in errors:
-                st.write(f"- {e}")
-            st.session_state.run_prediction = False
-            return
-
-        with st.spinner("Analyzing..."):
-            pred, prob = predict_diabetes(model, scaler, medians, **inputs)
-
-        if pred is None:
-            return
-
-        # Save log remotely
-        log_prediction(patient_name, inputs, pred, prob)
-
-        # Show result
-        st.markdown("---")
-        if pred:
-            st.markdown(
-                f"""
-                <div style="padding:20px; border-radius:10px; background:#ffebee;
-                border-left:5px solid #f44336; color:#c62828;">
-                    <h3>🔴 High Risk</h3>
-                    <p><strong>{patient_name}</strong>, AI detected a
-                    <strong>high diabetes risk</strong>.</p>
-                    <p><strong>Risk Score: {prob:.1f}%</strong></p>
-                    <p><em>Please consult a doctor for further tests (e.g. HbA1c).</em></p>
-                </div>
-                """, unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f"""
-                <div style="padding:20px; border-radius:10px; background:#e8f5e8;
-                border-left:5px solid #4caf50; color:#2e7d32;">
-                    <h3>✅ Low Risk</h3>
-                    <p><strong>{patient_name}</strong>, your current risk is
-                    <strong>low</strong>.</p>
-                    <p><strong>Risk Score: {prob:.1f}%</strong></p>
-                    <p><em>Keep maintaining a healthy lifestyle.</em></p>
-                </div>
-                """, unsafe_allow_html=True,
-            )
-
-        report = (
-            f"Diabetes Risk Report\n"
-            f"Patient: {patient_name}\n"
-            f"Risk: {'High' if pred else 'Low'}\n"
-            f"Probability: {prob:.1f}%\n"
-            f"Date: {datetime.now()}\n"
-        )
-        st.download_button("📥 Download Report", report, "report.txt")
-        st.session_state.run_prediction = False
-
-    # ---------------- Recent Logs ----------------
-    st.markdown("---")
-    st.subheader("📊 Recent Predictions (Last 5)")
+    # Show recent logs
+    st.subheader("📊 Recent Predictions")
     logs = fetch_remote_logs()
     if not logs.empty:
-        logs = logs.sort_values("timestamp", ascending=False).head(5)
-        st.dataframe(logs)
+        st.dataframe(logs.sort_values("timestamp", ascending=False).head(5))
     else:
-        st.info("⚠️ No logs available yet.")
+        st.info("No logs available yet.")
 
-# ===============================
-# 🚀 Run app
-# ===============================
 if __name__ == "__main__":
     main()
