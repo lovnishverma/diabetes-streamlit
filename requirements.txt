@@ -3,6 +3,7 @@ scikit-learn==1.6.1
 joblib==1.5.0
 numpy==2.2.3
 pandas
+plotly
 imblearn
 datasets
 huggingface-hub
