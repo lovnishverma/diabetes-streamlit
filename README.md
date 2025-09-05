@@ -9,22 +9,23 @@ app_file: app.py
 pinned: false
 license: mit
 short_description: This AI-powered Diabetes Prediction App uses a trained Model
+
 ---
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
 
 # Diabetes Prediction App
 
-"""
+
 Streamlit Diabetes Prediction App
 ---------------------------------
 - Trains/loads a RandomForest model
 - Accepts patient input for diabetes prediction
 - Saves each prediction to an audit log (local + Hugging Face dataset repo)
 - Displays the 5 most recent predictions
-"""
 
-![image/png](https://cdn-uploads.huggingface.co/production/uploads/6474405f90330355db146c76/iLbZiplXJ6W96wDuWXipN.png)
+
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/6474405f90330355db146c76/iLbZiplXJ6W96wDuWXipN
 
 # View Logs
 
